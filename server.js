@@ -13,11 +13,18 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const wsock = require('./server/wsock.js');
-const rooms = require('./server/rooms.js');
+// Файлы игры могут лежать по папкам (public/, server/) или все в одной куче —
+// так бывает, если хостинг при загрузке «расплющил» папки. Сервер работает в обоих случаях.
+const here = (...p) => path.join(__dirname, ...p);
+const pick = (...files) => files.find(f => fs.existsSync(f)) || files[0];
+const wsock = require(pick(here('server', 'wsock.js'), here('wsock.js')));
+const rooms = require(pick(here('server', 'rooms.js'), here('rooms.js')));
 
 const PORT = process.env.PORT || 3000;
-const ROOT = path.join(__dirname, 'public');
+const FLAT = !fs.existsSync(here('public', 'index.html'));      // true — папки public нет, всё лежит рядом
+const ROOT = FLAT ? __dirname : here('public');
+const CLIENT = new Set(['.html', '.js', '.css']);               // в «плоском» случае отдаём браузеру только такие файлы
+const SERVER_ONLY = new Set(['server.js', 'rooms.js', 'wsock.js']);
 // Адрес игры в интернете (его передаёт start-online.bat через --public=…): по нему строится ссылка для друзей
 const PUBLIC = (() => {
   const a = process.argv.find(x => x.startsWith('--public='));
@@ -52,9 +59,17 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (urlPath === '/') urlPath = '/index.html';
-  const file = path.normalize(path.join(ROOT, urlPath));
-  // не даём выйти за пределы папки public
-  if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end('Нельзя'); return; }
+  let file;
+  if (FLAT) {
+    // все файлы в одной папке: страница просит js/main.js — отдаём main.js из корня
+    const name = path.basename(urlPath);
+    if (!CLIENT.has(path.extname(name).toLowerCase()) || SERVER_ONLY.has(name)) { res.writeHead(404); res.end('Не найдено'); return; }
+    file = here(name);
+  } else {
+    file = path.normalize(path.join(ROOT, urlPath));
+    // не даём выйти за пределы папки public
+    if (file !== ROOT && !file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end('Нельзя'); return; }
+  }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('Не найдено'); return; }
     res.writeHead(200, {

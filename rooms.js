@@ -10,7 +10,9 @@
    ============================================================ */
 'use strict';
 const path = require('path');
-const shared = path.join(__dirname, '..', 'public', 'shared');
+// общие файлы логики: обычно в public/shared, но если хостинг сложил всё в одну папку — рядом с этим файлом
+const shared = [path.join(__dirname, '..', 'public', 'shared'), __dirname, path.join(__dirname, 'public', 'shared')]
+  .find(d => require('fs').existsSync(path.join(d, 'sim.js'))) || path.join(__dirname, '..', 'public', 'shared');
 require(path.join(shared, 'config.js'));
 require(path.join(shared, 'sim.js'));
 require(path.join(shared, 'proto.js'));
