@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Зубцы — битва цитаделей</title>
+  <!-- Запрещаем зум и растягиваем игру на весь экран, включая область под «чёлкой» -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#3f8a3a">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Игровое поле -->
+  <canvas id="game"></canvas>
+
+  <!-- Красная вспышка, когда базу атакуют -->
+  <div id="flash"></div>
+
+  <!-- Интерфейс поверх игры -->
+  <div id="hud" class="hidden">
+    <div id="topbar">
+      <div class="chip"><canvas data-icon="wood" data-size="28"></canvas><span class="ol" id="r-wood">0</span></div>
+      <div class="chip"><canvas data-icon="iron" data-size="28"></canvas><span class="ol" id="r-iron">0</span></div>
+      <div class="chip"><canvas data-icon="gold" data-size="28"></canvas><span class="ol" id="r-gold">0</span></div>
+      <div class="chip chip-army"><canvas data-icon="army" data-size="28"></canvas><span class="ol" id="r-army">0/20</span></div>
+    </div>
+    <div id="row2">
+      <div id="cits"></div>
+      <div id="timer" class="ol">15:00</div>
+    </div>
+    <div id="row3">
+      <div id="hint" class="ol hidden"></div>
+      <div id="side">
+        <canvas id="mini"></canvas>          <!-- мини-карта: нажми, чтобы увеличить -->
+        <button id="btn-exit" aria-label="Выйти из матча">✕</button>
+        <button id="btn-sound" class="round" aria-label="Звук"><canvas data-icon="sound" data-size="24"></canvas></button>
+      </div>
+    </div>
+    <!-- подсказка для новичка (появляется один раз) -->
+    <div id="tip" class="hidden"></div>
+    <div id="toast" class="ol hidden"></div>
+    <div id="respawn" class="ol hidden"></div>
+    <!-- выбывший игрок остаётся зрителем -->
+    <div id="spec" class="hidden">
+      <span class="ol">Ты выбыл и смотришь матч.<br>Веди пальцем, чтобы двигать камеру</span>
+    </div>
+  </div>
+
+  <!-- Три кнопки приказов войску — дугой под большим пальцем правой руки -->
+  <div id="cmds" class="hidden">
+    <button class="cmd" id="cmd-follow" data-mode="follow"><canvas data-icon="follow" data-size="40"></canvas><span class="ol">За мной</span></button>
+    <button class="cmd" id="cmd-attack" data-mode="attack"><canvas data-icon="attack" data-size="42"></canvas><span class="ol">В атаку</span></button>
+    <button class="cmd" id="cmd-hold" data-mode="hold"><canvas data-icon="hold" data-size="40"></canvas><span class="ol">Держать<br>позицию</span></button>
+  </div>
+
+  <!-- Плавающий джойстик -->
+  <div id="joy" class="hidden"><div id="joy-knob"></div></div>
+
+  <!-- Панель выбора: выезжает снизу, когда герой стоит на площадке с выбором -->
+  <div id="panel">
+    <div class="p-head">
+      <span id="p-title" class="ol"></span>
+      <button id="p-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="p-tabs"></div>
+    <div id="p-list"></div>
+  </div>
+
+  <!-- Связь потеряна -->
+  <div id="netlost" class="screen dim hidden">
+    <div class="card-box">
+      <p class="subtitle ol">Связь потеряна</p>
+      <p class="note ol" id="netlost-text">Пробуем вернуться в матч…</p>
+    </div>
+  </div>
+
+  <!-- Вопрос «точно выйти?» -->
+  <div id="confirm" class="screen dim hidden">
+    <div class="card-box">
+      <p class="subtitle ol">Выйти из матча?</p>
+      <p class="note ol" id="confirm-text"></p>
+      <button id="btn-quit" class="btn small">Выйти</button>
+      <button id="btn-stay" class="btn ghost small">Остаться</button>
+    </div>
+  </div>
+
+  <!-- Главное меню -->
+  <div id="menu" class="screen">
+    <div class="card-box scroll">
+      <canvas id="logo" width="10" height="10"></canvas>
+      <h1 class="title">ЗУБЦЫ</h1>
+      <p class="subtitle ol">битва цитаделей</p>
+
+      <input id="in-name" class="field" type="text" maxlength="12" placeholder="Твоё имя" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
+      <button id="btn-create" class="btn">Создать комнату</button>
+      <div class="join-row">
+        <input id="in-code" class="field code" type="text" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+        <button id="btn-join" class="btn small">Войти по коду</button>
+      </div>
+      <button id="btn-play" class="btn ghost">Играть одному с ботом</button>
+      <p id="menu-msg" class="msg ol hidden"></p>
+      <!-- настройки: звук, подсказки, правила -->
+      <div class="opts">
+        <button id="opt-sound" class="opt"><canvas data-icon="sound" data-size="30"></canvas><span>Звук</span><b>вкл</b></button>
+        <button id="opt-tips" class="opt"><canvas data-icon="tip" data-size="30"></canvas><span>Подсказки</span><b>вкл</b></button>
+        <button id="opt-help" class="opt"><canvas data-icon="help" data-size="30"></canvas><span>Как</span><b>играть</b></button>
+      </div>
+      <p class="note ol">Создай комнату и отправь друзьям код или ссылку.<br>На компьютере: WASD или мышь, приказы — клавиши 1, 2, 3</p>
+    </div>
+  </div>
+
+  <!-- Правила игры -->
+  <div id="help" class="screen hidden">
+    <div class="card-box scroll help">
+      <h2 class="ol">Как играть</h2>
+      <section>
+        <h3 class="ol">Цель</h3>
+        <p>Разрушь Цитадели всех врагов. Побеждает тот, чья Цитадель останется последней. Число на башне — её прочность, пунктирный круг — зона, где она стреляет.</p>
+      </section>
+      <section>
+        <h3 class="ol">Управление</h3>
+        <p><b>Телефон:</b> веди пальцем по экрану — появится джойстик. Три кнопки справа внизу — приказы войску.</p>
+        <p><b>Компьютер:</b> WASD, стрелки или зажатая мышь. Приказы — клавиши 1, 2, 3. Карта — M.</p>
+      </section>
+      <section>
+        <h3 class="ol">Ресурсы</h3>
+        <p><b>Дерево</b> — с ёлок (они отрастают): на здания. <b>Железо</b> — из камней с голубыми кристаллами: на войска. <b>Золото</b> — с убитых врагов и Ворчунов в центре карты: на улучшения. Герой добывает сам, когда стоит рядом.</p>
+      </section>
+      <section>
+        <h3 class="ol">Площадки</h3>
+        <p>Встань на круг на земле — ресурсы спишутся сами. Круг с плюсом — место под постройку: снизу выедет выбор. У каждого здания есть площадка улучшения (до 3 уровня), у зданий армии — ещё и площадка найма.</p>
+      </section>
+      <section>
+        <h3 class="ol">Четыре пути</h3>
+        <p>Мест под постройки 8 — на всё не хватит. <b>Добыча</b>: Лесопилка, Рудник, Рынок. <b>Защита</b>: Башни лучников, Частокол, укрепление Цитадели. <b>Армия</b>: Казарма, Стрельбище, Конюшня, Мастерская — каждая ещё и увеличивает лимит войска. <b>Прокачка</b>: Кузница.</p>
+      </section>
+      <section>
+        <h3 class="ol">Кто кого бьёт</h3>
+        <p><b>Мечник</b> — дешёвый и крепкий, бьёт всадников. <b>Лучник</b> — стреляет издалека, бьёт мечников. <b>Всадник</b> — быстрый, бьёт лучников. <b>Таран</b> — медленный, ломает только здания.</p>
+      </section>
+      <section>
+        <h3 class="ol">Приказы</h3>
+        <p><b>За мной</b> — войско идёт строем за героем. <b>Держать позицию</b> — войско стоит у флажка. <b>В атаку</b> — бойцы сами бросаются на всех врагов вокруг героя.</p>
+      </section>
+      <section>
+        <h3 class="ol">По сети</h3>
+        <p>Создай комнату и отправь друзьям код или ссылку. Если пропал интернет — 60 секунд за тебя играет бот, а игра сама пытается вернуть тебя в матч.</p>
+      </section>
+      <button id="help-close" class="btn small">Понятно</button>
+    </div>
+  </div>
+
+  <!-- Комната (лобби) -->
+  <div id="room" class="screen hidden">
+    <div class="card-box scroll">
+      <p class="note ol">Код комнаты — скажи его друзьям</p>
+      <div id="room-code" class="code-big">····</div>
+      <button id="btn-link" class="btn small">Скопировать ссылку</button>
+      <div id="mode-row" class="seg">
+        <button data-mode="ffa">Каждый сам за себя</button>
+        <button data-mode="teams">Команды</button>
+      </div>
+      <div id="slots"></div>
+      <button id="btn-start" class="btn">Начать матч</button>
+      <p id="room-wait" class="note ol hidden">Ждём, когда хозяин комнаты начнёт матч…</p>
+      <p id="room-msg" class="msg ol hidden"></p>
+      <button id="btn-leave" class="btn ghost small">Выйти из комнаты</button>
+    </div>
+  </div>
+
+  <!-- Экран конца матча -->
+  <div id="end" class="screen hidden">
+    <div class="card-box">
+      <h1 class="title" id="end-title">Победа!</h1>
+      <p class="subtitle ol" id="end-sub"></p>
+      <button id="btn-again" class="btn">Сыграть ещё</button>
+      <button id="btn-menu" class="btn ghost small">В меню</button>
+    </div>
+  </div>
+
+  <!-- Порядок важен: сначала настройки и логика, потом рисование, сеть и запуск -->
+  <script src="shared/config.js"></script>
+  <script src="shared/sim.js"></script>
+  <script src="shared/proto.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/minimap.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/tips.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/lobby.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

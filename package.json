@@ -1,0 +1,13 @@
+{
+  "name": "zubcy",
+  "version": "1.0.0",
+  "description": "Зубцы — мобильная браузерная стратегия: битва цитаделей",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

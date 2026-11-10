@@ -1,0 +1,11 @@
+# Настройки для хостинга Amvera (amvera.ru).
+# Amvera читает этот файл сама: какую программу ставить и как запускать игру.
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: 20
+
+run:
+  command: node server.js
+  containerPort: 3000
